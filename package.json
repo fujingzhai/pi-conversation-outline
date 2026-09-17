@@ -1,0 +1,41 @@
+{
+  "name": "pi-conversation-outline",
+  "version": "0.2.6",
+  "description": "Fullscreen conversation outline rail for Pi: per-prompt ticks, hover preview, click to jump. Does not change session context.",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "outline",
+    "timeline",
+    "tui",
+    "fullscreen",
+    "navigation"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "files": [
+    "extensions",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node test.mjs"
+  },
+  "pi": {
+    "extensions": [
+      "./extensions/index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/youxia-2025/pi-conversation-outline.git"
+  },
+  "bugs": {
+    "url": "https://github.com/youxia-2025/pi-conversation-outline/issues"
+  },
+  "homepage": "https://github.com/youxia-2025/pi-conversation-outline#readme"
+}
