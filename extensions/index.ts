@@ -64,7 +64,7 @@ function patchHasOverlay(tui: any): () => void {
   return dispose;
 }
 
-/** cc mode=on 折叠卡用 self shell；Pi 原生 MouseRegion 单击仍会 toggle 展开，之后只能靠 cc 双击收起。挡住这条原生切换，只保留 cc 的 hint 点击。 */
+/** cc mode=on 折叠卡用 self shell；Pi 原生 MouseRegion 单击会自行 toggle，与 cc 自己的“单击展开/折叠”重复触发。挡住这条原生切换，统一由 cc 处理。 */
 function patchNativeToolClick(): () => void {
   const proto = ToolExecutionComponent.prototype as any;
   if (proto[NATIVE_CLICK]) return proto[NATIVE_CLICK].dispose ?? (() => {});

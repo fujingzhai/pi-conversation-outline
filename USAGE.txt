@@ -1,0 +1,35 @@
+Pi 对话大纲轨 0.2.6
+
+启动后常驻在 fullscreen 对话区右侧（2 列），不必打 /outline。
+位置：~/.pi/agent/extensions/pi-outline/
+修改后：/reload。需要 `tuiMode: fullscreen`（当前默认已是）。
+
+效果（对齐 Grok Build 时间线，不是浮层目录）：
+- 每轮提问一根刻度，按对话顺序排列（不是滚动比例）
+- 当前视口顶部那一轮高亮；▲ / ▼ 跳到上一轮 / 下一轮
+- 鼠标悬停刻度显示提问预览；点击跳到原对话该条提问
+- 不回退、不分叉、不改上下文
+
+显示条件：fullscreen、终端宽度 ≥ 60、至少 2 轮提问。
+Ctrl+Alt+O：显示 / 隐藏。
+
+实现：
+- 用 nonCapturing overlay 画右侧轨，不抢键盘
+- 把 transcript ScrollView 的内容宽度让出 2 列（换掉官方滚动条槽）
+- 跳转仍走 jump.ts 的 ScrollView.scrollTo（不 force 整屏重绘，避免轨被清掉）
+- 轨贴终端右侧，高度=对话区（transcript 视口）行数、在对话区内垂直居中；滚动只改高亮不改位置；跳转不 force 重绘
+  （0.2.4 及以前按终端总行数画，2 列空白 overlay 盖住输入框边线和 footer 最右两列，footer 的 `• max` 被截成 `• m`）
+- 位置按"贴底时的对话区高度少一行"来排，滚离底部后沿用，换终端尺寸才重排
+  （0.2.5 按当前视口居中：一滚离底部，pi-cc-extensions 的 Back to bottom 按钮在底栏多占一行，视口变矮，轨随之跳一行；回底又跳回）
+- 轨与悬停卡都用 tui.showOverlay 按 handle 增删；ctx.ui.custom 只用来拿 TUI，占位 overlay 在 onHandle 里当场关掉。
+  原因：custom 的 done() 走 hideOverlay()，只弹栈顶，栈顶若是别的插件弹窗会误关它
+- 悬停卡与轨同时入栈（不再等首次悬停才建），保证它压在之后打开的弹窗下面
+- 每帧计算已降为线性：提问列表按叶子节点缓存；提问位置一次扫描全文（50 轮 2.3ms→0.24ms，含长粘贴的 150 轮 252ms→4ms）
+- 未改 Pi 本体；Pi 大版本更新后内部结构可能失效
+- 与 pi-cc-extensions：Pi 的 hasOverlay() 把 nonCapturing 也算进去，cc 会因此关掉 click to show more。本插件把 hasOverlay 收成“是否有抢输入的 overlay”（与 getTopmostVisibleOverlay 一致）；不足 2 轮时轨 overlay 不计入可见；未命中刻度的点击不标记 handled。
+- cc mode=on 时挡住 Pi 原生 MouseRegion 的单击 toggle，避免与 cc 自己的单击展开/折叠重复触发（cc 已改为整卡单击切换，对齐 Claude Code）。
+
+限制：
+- regular 模式没有应用内鼠标，轨不出现
+- 只读当前根到叶分支
+- 预览是提问首行，不含工具轨迹 / thinking
