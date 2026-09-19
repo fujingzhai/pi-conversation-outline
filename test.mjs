@@ -31,7 +31,12 @@ assert.equal(matchingTurns(turns,'經學').length,1);
 assert.equal(visibleText('\x1b[31mhello\x1b[0m'),'hello');
 assert.equal(JSON.stringify(entries),original);
 
-assert.equal(computeRail(20, 1, {atBottom:false}), undefined);
+assert.equal(computeRail(20, 0, {atBottom:false}), undefined);
+const single = computeRail(20, 1, {atBottom:false});
+assert.equal(single.windowStart, 0);
+assert.equal(single.windowEnd, 1);
+assert.equal(single.upTarget, undefined);
+assert.equal(single.downTarget, undefined);
 const small = computeRail(20, 4, {active:1, upTarget:0, downTarget:2, atBottom:false});
 assert.equal(small.windowStart, 0);
 assert.equal(small.windowEnd, 4);
@@ -135,6 +140,30 @@ assert.equal(jumped[0], 'a');
 assert.equal(rail.handleMouse({type:'click', button:'left', x:1, y:0}), undefined);
 const missRail = new OutlineRail(tui, theme, () => turns, () => {}, () => {});
 assert.equal(missRail.handleMouse({type:'click', button:'left', x:1, y:1}), undefined);
+// 只有一轮提问也画轨（0.2.7 起）：一根刻度，▲▼ 都不可用
+const oneTurnRail = new OutlineRail(tui, theme, () => [turns[0]], () => {}, () => {});
+assert.equal(oneTurnRail.render(2).length, 20);
+assert.equal(oneTurnRail.geometry.windowStart, 0);
+assert.equal(oneTurnRail.geometry.windowEnd, 1);
+assert.equal(oneTurnRail.geometry.upTarget, undefined);
+assert.equal(oneTurnRail.geometry.downTarget, 0);
+assert.deepEqual(hitTest(oneTurnRail.geometry, 1, oneTurnRail.geometry.ticksY), {kind:'tick', turn:0});
+assert.deepEqual(hitTest(oneTurnRail.geometry, 1, oneTurnRail.geometry.upY), {kind:'up'});
+// ▲ 无上一条不可点，▼ 可跳那唯一一条
+const oneJumped = [];
+const oneTurnRail2 = new OutlineRail(tui, theme, () => [turns[0]], () => {}, (turn) => oneJumped.push(turn.id));
+oneTurnRail2.render(2);
+assert.equal(oneTurnRail2.geometry.upTarget, undefined);
+assert.equal(oneTurnRail2.handleMouse({type:'click', button:'left', x:1, y:oneTurnRail2.geometry.upY}), undefined);
+assert.deepEqual(oneJumped, []);
+// 单轮且已滚到该提问之上时，▼ 可跳回
+const oneRolled = new OutlineRail(tui, theme, () => [turns[0]], () => {}, (turn) => oneJumped.push(turn.id));
+sv.scrollTop = -1;
+oneRolled.render(2);
+assert.equal(oneRolled.geometry.downTarget, 0);
+oneRolled.handleMouse({type:'click', button:'left', x:1, y:oneRolled.geometry.downY});
+assert.deepEqual(oneJumped, ['a']);
+sv.scrollTop = 0;
 const hovers = [];
 const rail2 = new OutlineRail(tui, theme, () => turns, (hit) => hovers.push(hit?.kind ?? 'none'), () => {});
 rail2.render(2);
@@ -151,7 +180,7 @@ const factory = indexMod.default;
 factory({registerCommand:(n,v)=>commands.set(n,v),registerShortcut:(n,v)=>shortcuts.set(n,v),on(){}});
 assert.equal(commands.has('outline'), false);
 assert.ok(shortcuts.has('ctrl+alt+o'));
-assert.ok(MIN_TURNS >= 2);
+assert.equal(MIN_TURNS, 1);
 assert.equal(indexMod.capturingOverlayVisible({ getTopmostVisibleOverlay: () => undefined }), false);
 assert.equal(indexMod.capturingOverlayVisible({ getTopmostVisibleOverlay: () => ({}) }), true);
 assert.equal(indexMod.capturingOverlayVisible({

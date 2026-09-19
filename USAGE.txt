@@ -1,4 +1,4 @@
-Pi 对话大纲轨 0.2.6
+Pi 对话大纲轨 0.2.7
 
 启动后常驻在 fullscreen 对话区右侧（2 列），不必打 /outline。
 位置：~/.pi/agent/extensions/pi-outline/
@@ -10,7 +10,7 @@ Pi 对话大纲轨 0.2.6
 - 鼠标悬停刻度显示提问预览；点击跳到原对话该条提问
 - 不回退、不分叉、不改上下文
 
-显示条件：fullscreen、终端宽度 ≥ 60、至少 2 轮提问。
+显示条件：fullscreen、终端宽度 ≥ 60、至少 1 轮提问（发出首条消息即有轨，此时只画一根刻度）。
 Ctrl+Alt+O：显示 / 隐藏。
 
 实现：
@@ -26,7 +26,7 @@ Ctrl+Alt+O：显示 / 隐藏。
 - 悬停卡与轨同时入栈（不再等首次悬停才建），保证它压在之后打开的弹窗下面
 - 每帧计算已降为线性：提问列表按叶子节点缓存；提问位置一次扫描全文（50 轮 2.3ms→0.24ms，含长粘贴的 150 轮 252ms→4ms）
 - 未改 Pi 本体；Pi 大版本更新后内部结构可能失效
-- 与 pi-cc-extensions：Pi 的 hasOverlay() 把 nonCapturing 也算进去，cc 会因此关掉 click to show more。本插件把 hasOverlay 收成“是否有抢输入的 overlay”（与 getTopmostVisibleOverlay 一致）；不足 2 轮时轨 overlay 不计入可见；未命中刻度的点击不标记 handled。
+- 与 pi-cc-extensions：Pi 的 hasOverlay() 把 nonCapturing 也算进去，cc 会因此关掉 click to show more。本插件把 hasOverlay 收成“是否有抢输入的 overlay”（与 getTopmostVisibleOverlay 一致）；轨无提问轮次时不计入可见；未命中刻度的点击不标记 handled。
 - cc mode=on 时挡住 Pi 原生 MouseRegion 的单击 toggle，避免与 cc 自己的单击展开/折叠重复触发（cc 已改为整卡单击切换，对齐 Claude Code）。
 
 限制：

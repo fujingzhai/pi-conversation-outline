@@ -1,6 +1,6 @@
 {
   "name": "pi-conversation-outline",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "description": "Fullscreen conversation outline rail for Pi: per-prompt ticks, hover preview, click to jump. Does not change session context.",
   "keywords": [
     "pi-package",

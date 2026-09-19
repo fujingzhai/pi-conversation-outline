@@ -5,7 +5,7 @@ import type { Turn } from "./model.ts";
 
 export const RAIL_WIDTH = 2;
 export const MIN_TERMINAL_WIDTH = 60;
-export const MIN_TURNS = 2;
+export const MIN_TURNS = 1;
 
 export type TimelineHit = { kind: "tick"; turn: number } | { kind: "up" } | { kind: "down" };
 
