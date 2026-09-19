@@ -13,7 +13,7 @@ pi install npm:pi-conversation-outline
 或：
 
 ```bash
-pi install git:github.com/youxia-2025/pi-conversation-outline
+pi install git:github.com/fujingzhai/pi-conversation-outline
 ```
 
 需要 `tuiMode: "fullscreen"`（Pi 当前默认已是）。装完 `/reload` 或新开会话。

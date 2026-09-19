@@ -32,10 +32,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/youxia-2025/pi-conversation-outline.git"
+    "url": "git+https://github.com/fujingzhai/pi-conversation-outline.git"
   },
   "bugs": {
-    "url": "https://github.com/youxia-2025/pi-conversation-outline/issues"
+    "url": "https://github.com/fujingzhai/pi-conversation-outline/issues"
   },
-  "homepage": "https://github.com/youxia-2025/pi-conversation-outline#readme"
+  "homepage": "https://github.com/fujingzhai/pi-conversation-outline#readme"
 }
