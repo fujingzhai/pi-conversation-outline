@@ -47,10 +47,12 @@ export function matchUserMessage(users: any[], turn: Turn, turns: Turn[]): any |
   return userMatcher(users, turns)(turn);
 }
 
-export function collectPromptOffsets(doc: any, turns: Turn[], width: number): number[] {
+/** heights 若给出，按 turn 填入提问框的行数（顺带取自已渲染的结果，不额外渲染） */
+export function collectPromptOffsets(doc: any, turns: Turn[], width: number, heights?: number[]): number[] {
   const users = collectUserMessages(doc);
   const lines: string[] = doc.render(width);
-  const needles: (string | undefined)[] = users.map(u => u.render(width)[0]);
+  const rendered: string[][] = users.map(u => u.render(width));
+  const needles: (string | undefined)[] = rendered.map(r => r[0]);
   const wanted = new Set(needles.filter(Boolean));
   const rows = new Map<string, number[]>();
   for (let i = 0; i < lines.length; i++) {
@@ -61,8 +63,9 @@ export function collectPromptOffsets(doc: any, turns: Turn[], width: number): nu
     else rows.set(line, [i]);
   }
   const match = userMatcher(users, turns);
-  return turns.map((turn) => {
+  return turns.map((turn, t) => {
     const idx = users.indexOf(match(turn));
+    if (heights) heights[t] = Math.max(1, idx < 0 ? 1 : rendered[idx]!.length);
     const needle = idx < 0 ? undefined : needles[idx];
     if (!needle) return 0;
     let skip = 0;

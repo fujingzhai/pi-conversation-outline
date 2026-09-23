@@ -10,6 +10,8 @@ export const MIN_TURNS = 1;
 export type TimelineHit = { kind: "tick"; turn: number } | { kind: "up" } | { kind: "down" };
 
 export interface RailViewport {
+  /** 高亮区间 activeFrom..active：屏幕上看得到的提问；一条都看不到时只有所在那条 */
+  activeFrom?: number;
   active?: number;
   upTarget?: number;
   downTarget?: number;
@@ -21,6 +23,7 @@ export interface TimelineRail {
   windowStart: number;
   windowEnd: number;
   ticksY: number;
+  activeFrom?: number;
   active?: number;
   upTarget?: number;
   downTarget?: number;
@@ -45,15 +48,21 @@ export function promptsAboveTop(promptYs: number[], top: number, strict: boolean
   return n;
 }
 
-export function viewportState(scrollTop: number, contentHeight: number, viewportHeight: number, promptYs: number[], turnCount: number): RailViewport {
+export function viewportState(scrollTop: number, contentHeight: number, viewportHeight: number, promptYs: number[], turnCount: number, promptHeights?: number[]): RailViewport {
   if (turnCount <= 0) return { atBottom: true };
   const above = promptsAboveTop(promptYs, scrollTop, false);
   const aboveStrict = promptsAboveTop(promptYs, scrollTop, true);
-  const active = Math.max(0, above - 1);
+  // 当前提问＝屏幕上已出现的最后一条：下一条一露头就算进入它，不必等它顶到屏幕上沿；▲▼ 仍按屏幕上沿找前后条
+  const shown = promptsAboveTop(promptYs, scrollTop + Math.max(1, viewportHeight) - 1, false);
+  const active = Math.max(0, shown - 1);
+  // 往前数仍有一行留在屏幕里的提问（长提问首行滚出上沿也算），它们与 active 一起高亮
+  let from = shown;
+  while (from > 0 && promptYs[from - 1]! + (promptHeights?.[from - 1] ?? 1) - 1 >= scrollTop) from--;
+  const activeFrom = from < shown ? from : active;
   const upTarget = aboveStrict > 0 ? aboveStrict - 1 : undefined;
   const down = above < turnCount ? above : undefined;
   const atBottom = contentHeight <= viewportHeight || scrollTop >= contentHeight - viewportHeight;
-  return { active, upTarget, downTarget: down, atBottom };
+  return { activeFrom, active, upTarget, downTarget: down, atBottom };
 }
 
 /** 滚离底部时底栏会多占的行数：cc 的 Back to bottom 按钮占一行，对话区视口随之变矮 */
@@ -83,7 +92,7 @@ export function computeRail(height: number, turnCount: number, vp: RailViewport,
   const ticksY = top + 1;
   return {
     height, windowStart: start, windowEnd, ticksY,
-    active: vp.active, upTarget: vp.upTarget, downTarget: vp.downTarget,
+    activeFrom: vp.activeFrom, active: vp.active, upTarget: vp.upTarget, downTarget: vp.downTarget,
     upY: top, downY: ticksY + (windowEnd - start),
   };
 }
@@ -205,8 +214,9 @@ export class OutlineRail {
     const lines = Array.from({ length: height }, () => " ".repeat(w));
     const termW = this.tui.terminal?.columns ?? 80;
     const contentWidth = Math.max(1, sv.getContentWidth?.(termW) ?? termW);
-    const promptYs = sv.child ? collectPromptOffsets(sv.child, turns, contentWidth) : turns.map(() => 0);
-    const vp = viewportState(sv.scrollTop ?? 0, sv.contentHeight ?? 0, height, promptYs, turns.length);
+    const promptHeights: number[] = [];
+    const promptYs = sv.child ? collectPromptOffsets(sv.child, turns, contentWidth, promptHeights) : turns.map(() => 0);
+    const vp = viewportState(sv.scrollTop ?? 0, sv.contentHeight ?? 0, height, promptYs, turns.length, promptHeights);
     const key = `${termW}x${this.tui.terminal?.rows ?? 0}`;
     // 贴底判据与 cc 显示按钮的判据一致（isFollowingEnd），贴底时按钮不在，此刻的视口就是基准
     if (key !== this.refKey || !this.refHeight || (sv.isFollowingEnd ?? vp.atBottom)) {
@@ -226,7 +236,7 @@ export class OutlineRail {
     paint(rail.downY, "▼", this.hovered?.kind === "down" && downOn ? "accent" : downOn ? "muted" : "dim");
     for (let i = 0; i < rail.windowEnd - rail.windowStart; i++) {
       const turn = rail.windowStart + i;
-      const active = rail.active === turn;
+      const active = rail.active !== undefined && turn >= (rail.activeFrom ?? rail.active) && turn <= rail.active;
       const hovered = this.hovered?.kind === "tick" && this.hovered.turn === turn;
       paint(rail.ticksY + i, active || hovered ? "━━" : "─", active || hovered ? "accent" : "dim");
     }

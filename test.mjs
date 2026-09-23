@@ -86,6 +86,23 @@ const mid = viewportState(80, 200, 20, [0, 80, 160], 3);
 assert.equal(mid.active, 1);
 assert.equal(mid.upTarget, 0);
 assert.equal(mid.downTarget, 2);
+// 下一条提问一露头（视口 61–80，提问在 80）就算进入它；差一行（60–79）仍算上一条
+const peek = viewportState(61, 200, 20, [0, 80, 160], 3);
+assert.equal(peek.active, 1);
+assert.equal(peek.upTarget, 0);
+assert.equal(peek.downTarget, 1);
+assert.equal(viewportState(60, 200, 20, [0, 80, 160], 3).active, 0);
+assert.equal(peek.activeFrom, 1);
+// 两条提问同屏（视口 70–89）：两条都高亮
+const both = viewportState(70, 200, 20, [0, 75, 85], 3);
+assert.deepEqual([both.activeFrom, both.active], [1, 2]);
+// 长提问首行已滚出上沿、正文还在屏上，也算看得到
+const tallPrompt = viewportState(70, 200, 20, [60, 85, 160], 3, [15, 1, 1]);
+assert.deepEqual([tallPrompt.activeFrom, tallPrompt.active], [0, 1]);
+// 一条提问都看不到（长回答中段）：只高亮所在那条
+const inside = viewportState(100, 300, 20, [0, 80, 160], 3);
+assert.deepEqual([inside.activeFrom, inside.active], [1, 1]);
+assert.equal(computeRail(20, 4, {activeFrom:1, active:2, atBottom:false}).activeFrom, 1);
 
 assert.deepEqual(wrapPreview('短标题', 16), ['短标题']);
 assert.equal(wrapPreview('x'.repeat(80), 16)[0].length <= 16 + 1, true);
@@ -102,7 +119,9 @@ assert.equal(collectUserMessages(doc).length, 2);
 assert.equal(matchUserMessage(collectUserMessages(doc), turns[1], turns), u2);
 assert.equal(offsetOf(doc, u1, 80), 1);
 assert.equal(offsetOf(doc, u2, 80), 3);
-assert.deepEqual(collectPromptOffsets(doc, turns, 80), [1, 3, 0]);
+const hs = [];
+assert.deepEqual(collectPromptOffsets(doc, turns, 80, hs), [1, 3, 0]);
+assert.deepEqual(hs, [1, 1, 1]);
 let scrolled;
 const sv = { primary:true, child:doc, getContentWidth:w=>w, viewportHeight:20, scrollTop:0, contentHeight:4, scrollTo(y,opts){ scrolled={y,opts}; } };
 assert.equal(jumpToTranscript({mode:'regular'}, turns[0], turns), 'need-fullscreen');
