@@ -13,7 +13,7 @@ const { initTheme } = await import(pathToFileURL(path.join(root,'dist/modes/inte
 initTheme('dark', false);
 const { visibleWidth } = await import(pathToFileURL(tuiPath));
 const {buildTurns, matchingTurns, visibleText} = await jiti.import('./extensions/model.ts');
-const {collectUserMessages, collectPromptOffsets, matchUserMessage, offsetOf, jumpToTranscript, findTranscriptScrollView} = await jiti.import('./extensions/jump.ts');
+const {collectUserMessages, collectPromptOffsets, matchUserMessage, offsetOf, offsetByLayout, jumpToTranscript, findTranscriptScrollView} = await jiti.import('./extensions/jump.ts');
 const {computeRail, chevronTarget, hitTest, viewportState, wrapPreview, MIN_TURNS, OutlineRail} = await jiti.import('./extensions/rail.ts');
 const theme = (await import(pathToFileURL(path.join(root,'dist/modes/interactive/theme/theme.js')))).theme;
 
@@ -108,7 +108,7 @@ assert.deepEqual(wrapPreview('短标题', 16), ['短标题']);
 assert.equal(wrapPreview('x'.repeat(80), 16)[0].length <= 16 + 1, true);
 assert.ok(visibleWidth(wrapPreview('第一问：經學史'.repeat(8), 16)[0]) <= 16);
 
-const fakeUser = (text, line) => ({text, rebuild(){}, outputPad:1, render:()=>[line]});
+const fakeUser = (text, line) => ({text, rebuild(){}, outputPad:1, render:()=>Array.isArray(line) ? line : [line]});
 const u1 = fakeUser('第一问：經學史','U1');
 const u2 = fakeUser('第二问：测试','U2');
 const doc = {
@@ -133,6 +133,29 @@ assert.equal(findTranscriptScrollView({
 }), sv);
 assert.equal(jumpToTranscript({mode:'fullscreen', layoutRoot:{children:[sv]}, terminal:{columns:80}, requestRender(){}}, turns[0], turns), 'ok');
 assert.deepEqual(scrolled, {y:1, opts:{disableFollow:true}});
+
+// Pi 1.4.0：用户消息首行可能只有空 padding，文本锚点失效后改走组件布局。
+const paddedU1 = fakeUser('第一问：經學史', ['', 'U1']);
+const paddedU2 = fakeUser('第二问：测试', ['', 'U2']);
+const nest = child => ({children:[child], render:()=>child.render(80)});
+const paddedDoc = {
+  children: [{render:()=>['H1', 'H2']}, nest(paddedU1), {render:()=>['A1', 'A2']}, paddedU2],
+  render:()=>['H1', 'H2', '', 'U1', 'A1', 'A2', '', 'U2'],
+};
+assert.equal(offsetOf(paddedDoc, paddedU1, 80), undefined);
+assert.equal(offsetByLayout(paddedDoc, paddedU1, 80), 2);
+assert.equal(offsetByLayout(paddedDoc, paddedU2, 80), 6);
+assert.equal(offsetByLayout(paddedDoc, fakeUser('不存在', 'X'), 80), undefined);
+const paddedHeights = [];
+assert.deepEqual(collectPromptOffsets(paddedDoc, turns, 80, paddedHeights), [2, 6, 0]);
+assert.deepEqual(paddedHeights, [2, 2, 1]);
+let paddedScrolled;
+const paddedSv = {primary:true, child:paddedDoc, getContentWidth:w=>w, viewportHeight:20, scrollTo(y){paddedScrolled=y;}};
+assert.equal(jumpToTranscript({mode:'fullscreen', layoutRoot:{children:[paddedSv]}, terminal:{columns:80}, requestRender(){}}, turns[1], turns), 'ok');
+assert.equal(paddedScrolled, 6);
+// child 风格（ScrollView）与前置兄弟高度也要计入。
+const childDoc = {child:{children:[{render:()=>['x', 'y', 'z']}, paddedU1]}, render:()=>['x', 'y', 'z', '', 'U1']};
+assert.equal(offsetByLayout(childDoc, paddedU1, 80), 3);
 
 const tui = {mode:'fullscreen', terminal:{rows:24, columns:80}, layoutRoot:{children:[sv]}, requestRender(){}};
 const jumped = [];

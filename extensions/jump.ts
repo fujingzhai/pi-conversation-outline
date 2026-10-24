@@ -47,6 +47,35 @@ export function matchUserMessage(users: any[], turn: Turn, turns: Turn[]): any |
   return userMatcher(users, turns)(turn);
 }
 
+/** 一次遍历算出各组件的布局行偏移，供文本锚点失效时兜底；避免每条提问各走一遍组件树。 */
+function layoutOffsets(root: any, width: number): Map<any, number> {
+  const offsets = new Map<any, number>();
+  const heights = new Map<any, number>();
+  const visited = new Set<any>();
+  const height = (c: any): number => {
+    if (!heights.has(c)) {
+      try { heights.set(c, (c?.render?.(width) ?? []).length); }
+      catch { heights.set(c, 0); }
+    }
+    return heights.get(c)!;
+  };
+  const walk = (node: any, base: number) => {
+    if (!node || visited.has(node)) return;
+    visited.add(node);
+    offsets.set(node, base);
+    const children = node.children ?? [];
+    let y = base;
+    for (const child of children) {
+      walk(child, y);
+      y += height(child);
+    }
+    // ScrollView 等组件可能用 child 而非 children 暴露内容；两者都有时避免重复遍历。
+    if (node.child && node.child !== node && !children.includes(node.child)) walk(node.child, base);
+  };
+  walk(root, 0);
+  return offsets;
+}
+
 /** heights 若给出，按 turn 填入提问框的行数（顺带取自已渲染的结果，不额外渲染） */
 export function collectPromptOffsets(doc: any, turns: Turn[], width: number, heights?: number[]): number[] {
   const users = collectUserMessages(doc);
@@ -63,14 +92,20 @@ export function collectPromptOffsets(doc: any, turns: Turn[], width: number, hei
     else rows.set(line, [i]);
   }
   const match = userMatcher(users, turns);
+  let byLayout: Map<any, number> | undefined;
   return turns.map((turn, t) => {
-    const idx = users.indexOf(match(turn));
+    const target = match(turn);
+    const idx = users.indexOf(target);
     if (heights) heights[t] = Math.max(1, idx < 0 ? 1 : rendered[idx]!.length);
     const needle = idx < 0 ? undefined : needles[idx];
-    if (!needle) return 0;
-    let skip = 0;
-    for (let i = 0; i < idx; i++) if (needles[i] === needle) skip++;
-    return rows.get(needle)?.[skip] ?? 0;
+    if (needle) {
+      let skip = 0;
+      for (let i = 0; i < idx; i++) if (needles[i] === needle) skip++;
+      const byText = rows.get(needle)?.[skip];
+      if (byText !== undefined) return byText;
+    }
+    byLayout ??= layoutOffsets(doc, width);
+    return (target ? byLayout.get(target) : undefined) ?? 0;
   });
 }
 
@@ -92,6 +127,11 @@ export function offsetOf(root: any, target: any, width: number): number | undefi
     }
   }
   return undefined;
+}
+
+/** 文本锚点失效（如 Pi 1.4.0 的顶部空 padding 行）时，按组件树中的实际渲染高度定位。 */
+export function offsetByLayout(root: any, target: any, width: number): number | undefined {
+  return layoutOffsets(root, width).get(target);
 }
 
 function isScrollView(c: any): boolean {
@@ -128,7 +168,7 @@ export function jumpToTranscript(tui: any, turn: Turn, turns: Turn[]): JumpResul
   const width = Math.max(1, sv.getContentWidth(tui.terminal?.columns ?? 80));
   const target = matchUserMessage(collectUserMessages(doc), turn, turns);
   if (!target) return "miss";
-  const y = offsetOf(doc, target, width);
+  const y = offsetOf(doc, target, width) ?? offsetByLayout(doc, target, width);
   if (y === undefined) return "miss";
   sv.scrollTo(y, { disableFollow: true });
   tui.requestRender?.();
